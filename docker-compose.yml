@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pmops
+      POSTGRES_PASSWORD: pmops
+      POSTGRES_DB: pmops
+    ports:
+      - "5432:5432"
+    volumes:
+      - pmops_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pmops -d pmops"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pmops_db:

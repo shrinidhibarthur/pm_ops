@@ -1,0 +1,537 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleKey {
+  PRODUCT_MANAGER
+  SENIOR_PM
+  ENGINEERING_ARCHITECT
+  DESIGN_LEAD
+  DIRECTOR
+  FINANCE_ART_APPROVER
+  ADA_REVIEWER
+  PROJECT_MANAGER
+  ADMIN
+}
+
+enum InitiativeStatus {
+  ACTIVE
+  ON_HOLD
+  CANCELLED
+  COMPLETED
+}
+
+enum StageStateStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  BLOCKED
+  COMPLETE
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ArtifactType {
+  LINK
+  DOCUMENT
+  PRD
+  UX
+  DESIGN
+  FINANCE
+  ADA
+  OTHER
+}
+
+enum JiraIssueType {
+  EPIC
+  STORY
+  TASK
+  BUG
+}
+
+enum NotificationChannel {
+  EMAIL
+  TEAMS
+  WEBHOOK
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum WorkflowConfigStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ReportType {
+  INITIATIVE_SUMMARY
+  PORTFOLIO_SUMMARY
+  WBR
+  MBR
+  QBR
+  SIX_PAGER
+}
+
+enum ExportFormat {
+  PDF
+  DOCX
+  CSV
+}
+
+enum ExportJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  emailVerified DateTime?
+  title     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roles      UserRole[]
+  teams      UserTeam[]
+  initiativesOwned Initiative[] @relation("InitiativeOwner")
+
+  auditEvents AuditLog[] @relation("AuditActor")
+
+  accounts Account[]
+  sessions Session[]
+
+  approvalsRequested ApprovalTask[] @relation("ApprovalRequestedBy")
+  approvalsAssigned  ApprovalTask[] @relation("ApprovalAssignedTo")
+  approvalsDecided   ApprovalTask[] @relation("ApprovalDecisionBy")
+
+  checklistCompletions ChecklistCompletion[]
+  artifactsCreated     Artifact[]
+  exportJobsRequested  ExportJob[]
+  commentsAuthored     InitiativeComment[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Role {
+  id        String   @id @default(cuid())
+  key       RoleKey  @unique
+  name      String
+  createdAt DateTime @default(now())
+
+  users UserRole[]
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       UserTeam[]
+  initiatives Initiative[]
+  workflowConfigs WorkflowConfig[]
+  approvalMatrices ApprovalMatrix[]
+  jiraMappings JiraMapping[]
+}
+
+model UserTeam {
+  id        String   @id @default(cuid())
+  userId    String
+  teamId    String
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, teamId])
+  @@index([teamId])
+}
+
+model Initiative {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  title       String
+  summary     String?
+  status      InitiativeStatus @default(ACTIVE)
+
+  ownerId     String
+  teamId      String
+
+  workflowConfigId String
+  currentStageKey  String
+  currentStageOrdinal Int
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner User @relation("InitiativeOwner", fields: [ownerId], references: [id])
+  team  Team @relation(fields: [teamId], references: [id])
+
+  workflowConfig WorkflowConfig @relation(fields: [workflowConfigId], references: [id])
+
+  stageStates InitiativeStageState[]
+  artifacts   Artifact[]
+  approvals   ApprovalTask[]
+  jiraLinks   JiraIssueLink[]
+  kpiSnapshots KpiSnapshot[]
+  exportJobs  ExportJob[]
+  comments    InitiativeComment[]
+  checklistCompletions ChecklistCompletion[]
+
+  @@index([teamId])
+  @@index([ownerId])
+  @@index([workflowConfigId])
+  @@index([currentStageKey])
+}
+
+model InitiativeStageState {
+  id           String           @id @default(cuid())
+  initiativeId String
+  stageKey     String
+  ordinal      Int
+  status       StageStateStatus @default(NOT_STARTED)
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+
+  @@unique([initiativeId, stageKey])
+  @@index([initiativeId, ordinal])
+  @@index([stageKey])
+}
+
+model ApprovalTask {
+  id            String         @id @default(cuid())
+  initiativeId  String
+  stageKey      String
+
+  title         String
+  status        ApprovalStatus @default(PENDING)
+
+  requestedByUserId String
+  assignedToUserId  String?
+  assignedRoleKey   RoleKey?
+
+  decisionByUserId  String?
+  decidedAt         DateTime?
+  decisionComment   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+
+  requestedBy User @relation("ApprovalRequestedBy", fields: [requestedByUserId], references: [id])
+  assignedTo  User? @relation("ApprovalAssignedTo", fields: [assignedToUserId], references: [id])
+  decisionBy  User? @relation("ApprovalDecisionBy", fields: [decisionByUserId], references: [id])
+
+  @@index([initiativeId, stageKey, status])
+  @@index([assignedToUserId, status])
+  @@index([assignedRoleKey, status])
+}
+
+model ChecklistTemplate {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  items     Json     // [{ key, label, description?, required:boolean }]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ChecklistCompletion {
+  id           String   @id @default(cuid())
+  initiativeId String
+  stageKey     String
+  checklistKey String
+  itemKey      String
+
+  completedByUserId String
+  completedAt DateTime @default(now())
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  completedBy User @relation(fields: [completedByUserId], references: [id])
+
+  @@unique([initiativeId, stageKey, checklistKey, itemKey])
+  @@index([initiativeId, stageKey])
+}
+
+model Artifact {
+  id           String      @id @default(cuid())
+  initiativeId String
+  stageKey     String?
+  type         ArtifactType
+  name         String
+  url          String
+  metadata     Json?
+  createdByUserId String
+  createdAt    DateTime @default(now())
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  createdBy  User @relation(fields: [createdByUserId], references: [id])
+
+  @@index([initiativeId])
+  @@index([stageKey])
+  @@index([type])
+}
+
+model JiraMapping {
+  id          String   @id @default(cuid())
+  teamId      String
+  provider    String   @default("jira-cloud")
+  projectKey  String
+  epicIssueType  String @default("Epic")
+  storyIssueType String @default("Story")
+  fieldMappings Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  workflowConfigs WorkflowConfig[]
+
+  @@index([teamId])
+}
+
+model JiraIssueLink {
+  id           String       @id @default(cuid())
+  initiativeId String
+  issueKey     String
+  issueType    JiraIssueType
+  url          String
+  status       String?
+  progress     Json?
+  syncedAt     DateTime?
+  createdAt    DateTime @default(now())
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+
+  @@unique([initiativeId, issueKey])
+  @@index([issueKey])
+}
+
+model Notification {
+  id         String             @id @default(cuid())
+  channel    NotificationChannel
+  type       String
+  to         String
+  payload    Json
+  status     NotificationStatus @default(PENDING)
+  attempts   Int                @default(0)
+  lastError  String?
+  createdAt  DateTime @default(now())
+  sentAt     DateTime?
+
+  @@index([status, createdAt])
+}
+
+model MetricMapping {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  name       String
+  definition Json     // configurable metric definition + data source
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model KpiSnapshot {
+  id           String   @id @default(cuid())
+  initiativeId String
+  capturedAt   DateTime @default(now())
+  values       Json     // { metricKey: number|string|{...} }
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+
+  @@index([initiativeId, capturedAt])
+}
+
+model ReportTemplate {
+  id          String     @id @default(cuid())
+  key         String     @unique
+  name        String
+  type        ReportType
+  config      Json?
+  templateBody String?   // provider-specific template representation
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  exportJobs ExportJob[]
+}
+
+model ExportJob {
+  id              String         @id @default(cuid())
+  reportTemplateId String
+  initiativeId     String?
+  requestedByUserId String
+  status          ExportJobStatus @default(QUEUED)
+  format          ExportFormat
+  params          Json?
+  resultUrl       String?
+  error           String?
+  createdAt       DateTime @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  reportTemplate ReportTemplate @relation(fields: [reportTemplateId], references: [id])
+  initiative     Initiative? @relation(fields: [initiativeId], references: [id], onDelete: SetNull)
+  requestedBy    User @relation(fields: [requestedByUserId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([initiativeId])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String
+  before      Json?
+  after       Json?
+  meta        Json?
+  requestId   String?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorUserId, createdAt])
+}
+
+model WorkflowConfig {
+  id          String              @id @default(cuid())
+  key         String              @unique
+  name        String
+  version     Int                 @default(1)
+  status      WorkflowConfigStatus @default(DRAFT)
+  teamId      String?
+  stages      Json                // ordered list of stage keys + overrides
+  notificationRules Json?
+  jiraMappingId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  jiraMapping JiraMapping? @relation(fields: [jiraMappingId], references: [id], onDelete: SetNull)
+
+  initiatives Initiative[]
+
+  @@index([teamId, status])
+}
+
+model StageTemplate {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  requirements Json    // { artifacts:[], checklists:[], approvals:[] }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ApprovalMatrix {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  teamId    String?
+  rules     Json     // configurable approver selection + quorum
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@index([teamId])
+}
+
+model InitiativeComment {
+  id           String   @id @default(cuid())
+  initiativeId String
+  authorUserId String
+  body         String
+  createdAt    DateTime @default(now())
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+  author     User @relation(fields: [authorUserId], references: [id])
+
+  @@index([initiativeId, createdAt])
+}
