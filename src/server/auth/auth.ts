@@ -5,7 +5,11 @@ import { prisma } from "@/server/db/prisma";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "database" },
+
+  session: {
+    strategy: "jwt",
+  },
+
   providers: [
     CredentialsProvider({
       name: "Dev Email",
@@ -15,21 +19,39 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials) {
         const email = credentials?.email?.toLowerCase().trim();
         if (!email) return null;
-        const user = await prisma.user.findUnique({ where: { email } });
+
+        const user = await prisma.user.findUnique({
+          where: { email },
+        });
+
         if (!user || !user.active) return null;
-        return user;
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        };
       },
     }),
   ],
+
   callbacks: {
-    async session({ session, user }) {
-      // Include id for server-side permission checks.
-      if (session.user) session.user.id = user.id;
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (session.user && token.id) {
+        session.user.id = token.id as string;
+      }
       return session;
     },
   },
+
   pages: {
     signIn: "/login",
   },
 };
-
