@@ -1,50 +1,52 @@
-import Link from "next/link";
-import { LayoutDashboard, ListTodo, CheckSquare, Settings, Layers } from "lucide-react";
-import { cn } from "@/lib/cn";
+"use client";
 
-const nav = [
-  { href: "/dashboard", label: "Executive Dashboard", icon: LayoutDashboard },
-  { href: "/initiatives", label: "Initiatives", icon: Layers },
-  { href: "/approvals", label: "Approvals", icon: CheckSquare },
-  { href: "/admin/workflows", label: "Admin", icon: Settings },
-  { href: "/admin/templates", label: "Templates", icon: ListTodo },
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard, Layers, CheckSquare, Settings, PlusCircle, FolderKanban } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const navigation = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Initiatives", href: "/initiatives", icon: Layers },
+  { name: "Create Initiative", href: "/initiatives/new", icon: PlusCircle },
+  { name: "Approvals", href: "/approvals", icon: CheckSquare },
+  { name: "Admin", href: "/admin/workflows", icon: Settings },
 ];
 
 export function Sidebar() {
+  const pathname = usePathname();
+
   return (
-    <aside className="w-72 shrink-0 border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-black">
-      <div className="px-4 py-4">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-lg bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900 flex items-center justify-center text-xs font-bold">
-            PILM
-          </div>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold leading-5">Lifecycle OS</div>
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">Internal product system</div>
-          </div>
-        </div>
+    <aside className="flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar">
+      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-6">
+        <FolderKanban className="h-6 w-6 text-sidebar-primary" />
+        <span className="text-lg font-semibold text-sidebar-foreground">PILMS</span>
       </div>
-      <nav className="px-2 pb-4">
-        {nav.map((item) => {
-          const Icon = item.icon;
+      <nav className="flex-1 space-y-1 p-4">
+        {navigation.map((item) => {
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/dashboard" && pathname.startsWith(item.href));
           return (
             <Link
-              key={item.href}
+              key={item.name}
               href={item.href}
               className={cn(
-                "group flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-50",
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
             >
-              <Icon className="h-4 w-4 text-zinc-500 group-hover:text-zinc-900 dark:text-zinc-400 dark:group-hover:text-zinc-50" />
-              <span className="truncate">{item.label}</span>
+              <item.icon className="h-5 w-5" />
+              {item.name}
             </Link>
           );
         })}
       </nav>
-      <div className="mt-auto px-4 pb-4 text-[11px] text-zinc-500 dark:text-zinc-400">
-        Config-driven workflow • Audit-first
+      <div className="border-t border-sidebar-border p-4">
+        <div className="text-[11px] text-muted-foreground">Config-driven workflow • Audit-first</div>
       </div>
     </aside>
   );
 }
-
