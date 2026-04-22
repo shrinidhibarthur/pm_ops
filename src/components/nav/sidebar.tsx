@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Layers, CheckSquare, Settings, PlusCircle, FolderKanban } from "lucide-react";
+import { LayoutDashboard, Layers, CheckSquare, Settings, PlusCircle, FolderKanban, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -10,6 +10,7 @@ const navigation = [
   { name: "Initiatives", href: "/initiatives", icon: Layers },
   { name: "Create Initiative", href: "/initiatives/new", icon: PlusCircle },
   { name: "Approvals", href: "/approvals", icon: CheckSquare },
+  { name: "Reviews", href: "/reviews", icon: BarChart2 },
   { name: "Admin", href: "/admin/workflows", icon: Settings },
 ];
 
