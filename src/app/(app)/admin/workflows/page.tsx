@@ -1,61 +1,42 @@
 import { prisma } from "@/server/db/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminTabs } from "@/components/admin/admin-tabs";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminWorkflowsPage() {
-  const workflows = await prisma.workflowConfig.findMany({ orderBy: { updatedAt: "desc" }, take: 25 });
-  const stages = await prisma.stageTemplate.findMany({ orderBy: { key: "asc" } });
+  const [workflows, stages, approvalMatrices, jiraMappings, reportTemplates] = await Promise.all([
+    prisma.workflowConfig.findMany({
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+      include: { team: { select: { name: true } } },
+    }),
+    prisma.stageTemplate.findMany({ orderBy: { key: "asc" } }),
+    prisma.approvalMatrix.findMany({
+      orderBy: { key: "asc" },
+      include: { team: { select: { name: true } } },
+    }),
+    prisma.jiraMapping.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { team: { select: { name: true } } },
+    }),
+    prisma.reportTemplate.findMany({ orderBy: { key: "asc" } }),
+  ]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-semibold tracking-tight">Admin • Workflow configuration</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Stage templates and workflow configs are DB-backed and editable here (UI/editor next).
+        <h1 className="text-2xl font-semibold text-foreground">Admin</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Manage workflow configs, stage templates, approval matrices, Jira mappings, and report templates.
         </p>
       </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Workflow configs</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <ul className="space-y-2">
-              {workflows.map((w) => (
-                <li key={w.id} className="rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-800">
-                  <div className="font-medium">{w.name}</div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                    key={w.key} • status={w.status} • version={w.version}
-                  </div>
-                </li>
-              ))}
-              {workflows.length === 0 ? (
-                <li className="text-zinc-600 dark:text-zinc-400">No workflow configs.</li>
-              ) : null}
-            </ul>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Stage templates</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <ul className="space-y-2">
-              {stages.map((s) => (
-                <li key={s.id} className="rounded-md border border-zinc-200 px-3 py-2 dark:border-zinc-800">
-                  <div className="font-medium">{s.name}</div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">key={s.key}</div>
-                </li>
-              ))}
-              {stages.length === 0 ? <li className="text-zinc-600 dark:text-zinc-400">No stage templates.</li> : null}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+      <AdminTabs
+        workflows={workflows}
+        stages={stages}
+        approvalMatrices={approvalMatrices}
+        jiraMappings={jiraMappings}
+        reportTemplates={reportTemplates}
+      />
     </div>
   );
 }
-
