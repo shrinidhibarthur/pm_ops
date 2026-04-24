@@ -105,6 +105,13 @@ enum ExportJobStatus {
   CANCELLED
 }
 
+enum BusinessReviewStatus {
+  PENDING
+  RUNNING
+  COMPLETE
+  FAILED
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -133,6 +140,7 @@ model User {
   artifactsCreated     Artifact[]
   exportJobsRequested  ExportJob[]
   commentsAuthored     InitiativeComment[]
+  businessReviews      BusinessReview[]
 }
 
 model Account {
@@ -534,4 +542,28 @@ model InitiativeComment {
   author     User @relation(fields: [authorUserId], references: [id])
 
   @@index([initiativeId, createdAt])
+}
+
+model BusinessReview {
+  id            String               @id @default(cuid())
+  type          ReportType
+  dateStart     DateTime
+  dateEnd       DateTime
+  status        BusinessReviewStatus @default(PENDING)
+
+  jiraData      Json?
+  analyticsData Json?
+  narrative     Json?
+  actions       Json?
+
+  error         String?
+  generatedAt   DateTime?
+
+  requestedByUserId String
+  requestedBy       User   @relation(fields: [requestedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([requestedByUserId, createdAt])
 }
